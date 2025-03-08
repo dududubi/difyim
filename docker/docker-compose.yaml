@@ -415,11 +415,23 @@ x-shared-env: &shared-api-worker-env
   FORCE_VERIFYING_SIGNATURE: ${FORCE_VERIFYING_SIGNATURE:-true}
 
 services:
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    restart: always
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_API_KEY=your_ollama_api_key
   # API service
   api:
     image: langgenius/dify-api:1.0.0
     restart: always
     environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_API_KEY: your_ollama_api_key
       # Use the shared environment variables.
       <<: *shared-api-worker-env
       # Startup mode, 'api' starts the API server.
@@ -431,15 +443,19 @@ services:
       PLUGIN_REMOTE_INSTALL_PORT: ${EXPOSE_PLUGIN_DEBUGGING_PORT:-5003}
       PLUGIN_MAX_PACKAGE_SIZE: ${PLUGIN_MAX_PACKAGE_SIZE:-52428800}
       INNER_API_KEY_FOR_PLUGIN: ${PLUGIN_DIFY_INNER_API_KEY:-QaHbTe77CtuXmsfyhR7+vRjI/+XbV1AaFy691iy+kGDv2Jvy0/eAh8Y1}
+      
     depends_on:
       - db
       - redis
+      - ollama
     volumes:
       # Mount the storage directory to the container, for storing user files.
       - ./volumes/app/storage:/app/api/storage
     networks:
       - ssrf_proxy_network
       - default
+    extra_hosts:
+      - host.docker.internal:host-gateway
 
   # worker service
   # The Celery worker for processing the queue.
@@ -1015,5 +1031,6 @@ networks:
     internal: true
 
 volumes:
+  ollama_data:
   oradata:
   dify_es01_data:
